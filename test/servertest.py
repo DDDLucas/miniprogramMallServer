@@ -9,10 +9,14 @@ from flask_cors import CORS
 #引用pymysql
 import pymysql
 import mysql
+
 #解决时间序列化问题
 from datetime import date, datetime
 
 import random
+import config
+#redis 模块
+import redis
 
 class CJsonEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -139,5 +143,25 @@ def favor():
     else:   #不收藏
         mysql.Excuit("UPDATE goods_favor_fil SET is_favor="+is_favor+"  where goods_id=" + goodsid + " and uid=" + uid)
     return json.dumps({"status": is_favor})
+
+
+@app.route("/cart/init")
+def cartInit():
+    id = request.args.get("uid")
+    rs=redis.StrictRedis(config.redisConfig["host"],config.redisConfig["port"])
+    # rs.flushall()
+    msg = rs.hget("cart","u"+str(id))
+    if msg ==None:
+        rs.hset("cart","u"+str(id),"[]")
+    msg = rs.hget("cart", "u" + str(id))
+    return json.dumps(json.loads(msg))  #序列化
+
+@app.route("/cart/refresh")
+def cartRefresh():
+    id = request.args.get("uid")
+    data = request.args.get("data")
+    rs = redis.StrictRedis(config.redisConfig["host"], config.redisConfig["port"])
+    rs.hset("cart","u"+str(id),data)
+    return {"status":0}
 
 app.run(host="192.168.1.4", port=4444, debug=True)
